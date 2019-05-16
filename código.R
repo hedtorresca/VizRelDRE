@@ -6,10 +6,11 @@ library(highcharter)
 library(readxl) #Paquete para lectura de datos.
 library(ggplot2)
 library(htmlwidgets)
-library(xlsx)
 library(leaflet)
 library(rgdal)
 library(rjson)
+
+library(treemap)
 library(extrafont)
 source("functions.R", encoding = 'UTF-8')
 
@@ -111,6 +112,7 @@ Conteo3 <- function(varc){
 }
 
 
+
 paises <- Conteo3("tramite")
 paises <- na.omit(paises[paises$YEAR != "20173",])
 
@@ -158,11 +160,50 @@ spanish <- na.omit(spanish)
 
 cant_cartas <- cartas %>% group_by(País) %>% summarise(Total=n())
 cant_cartas <- na.omit(cant_cartas)
+cant_cartasPIP <- cartas[cartas$tramite== "PIP",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP <- na.omit(cant_cartasPIP)
+
+cant_cartasAPC <- cartas[cartas$tramite== "APC",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasAPC <- na.omit(cant_cartasAPC)
+cant_cartasPIP5 <- cartas[cartas$tramite== "PIP5",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP5 <- na.omit(cant_cartasPIP5)
+
+cant_cartasTP12 <- cartas[cartas$tramite== "TP12",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP12 <- na.omit(cant_cartasTP12)
+
+cant_cartasTP7 <- cartas[cartas$tramite== "TP7",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP7 <- na.omit(cant_cartasTP7)
+
+cant_cartasAUIP <- cartas[cartas$tramite== "PIP6",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasAUIP <- na.omit(cant_cartasAUIP)
+
+cant_cartasTP4 <- cartas[cartas$tramite== "TP4",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP4 <- na.omit(cant_cartasTP4)
+
+cant_cartasVISA <- cartas[cartas$tramite== "VISA",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasVISA <- na.omit(cant_cartasVISA)
+
+cant_cartasPIP7 <- cartas[cartas$tramite== "PIP7",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP7 <- na.omit(cant_cartasPIP7)
+
+cant_cartasTP5 <- cartas[cartas$tramite== "TP5",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP5 <- na.omit(cant_cartasTP5)
+
+cant_cartasPIP2 <- cartas[cartas$tramite== "PIP2",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP2 <- na.omit(cant_cartasPIP2)
+
+cant_cartasTP1 <- cartas[cartas$tramite== "TP1",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP1 <- na.omit(cant_cartasTP1)
+
+cant_cartasTP6 <- cartas[cartas$tramite== "TP6",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP6 <- na.omit(cant_cartasTP6)
+
+
 countries <- rgdal::readOGR("countriesgeo.json")
 
 head(countries@data) # Vista previa del JSON
 
-codigos <- matrix(0, nrow = 180, ncol = 5)
+codigos <- matrix(0, nrow = 180, ncol = 18)
 
 for(i in 1:180){
   codigos[i,1] = as.character(countries@data$id[i])
@@ -185,10 +226,79 @@ for(i in codigos[-c(40,148, 69, 91, 140, 143, 176),1]){
   codigos[codigos[,1] == i, 5] = centroids$Latitude[centroids$CODS_PAISU == i]
 }
 
+for(i in na.omit(cant_cartasPIP$País)){
+  codigos[codigos[,2] == i, 6] = cant_cartasPIP$Total[cant_cartasPIP$País == i]
+}
+
+for(i in na.omit(cant_cartasAPC$País)){
+  codigos[codigos[,2] == i, 7] = cant_cartasAPC$Total[cant_cartasAPC$País == i]
+}
+
+for(i in na.omit(cant_cartasAUIP$País)){
+  codigos[codigos[,2] == i, 8] = cant_cartasAUIP$Total[cant_cartasAUIP$País == i]
+}
+
+for(i in na.omit(cant_cartasPIP2$País)){
+  codigos[codigos[,2] == i, 9] = cant_cartasPIP2$Total[cant_cartasPIP2$País == i]
+}
+
+for(i in na.omit(cant_cartasPIP5$País)){
+  codigos[codigos[,2] == i, 10] = cant_cartasPIP5$Total[cant_cartasPIP5$País == i]
+}
+
+for(i in na.omit(cant_cartasPIP7$País)){
+  codigos[codigos[,2] == i, 11] = cant_cartasPIP7$Total[cant_cartasPIP7$País == i]
+}
+
+for(i in na.omit(cant_cartasTP1$País)){
+  codigos[codigos[,2] == i, 12] = cant_cartasTP1$Total[cant_cartasTP1$País == i]
+}
+
+for(i in na.omit(cant_cartasTP12$País)){
+  codigos[codigos[,2] == i, 13] = cant_cartasTP12$Total[cant_cartasTP12$País == i]
+}
+
+for(i in na.omit(cant_cartasTP4$País)){
+  codigos[codigos[,2] == i, 14] = cant_cartasTP4$Total[cant_cartasTP4$País == i]
+}
+
+for(i in na.omit(cant_cartasTP5$País)){
+  codigos[codigos[,2] == i, 15] = cant_cartasTP5$Total[cant_cartasTP5$País == i]
+}
+
+for(i in na.omit(cant_cartasTP6$País)){
+  codigos[codigos[,2] == i, 16] = cant_cartasTP6$Total[cant_cartasTP6$País == i]
+}
+
+for(i in na.omit(cant_cartasTP7$País)){
+  codigos[codigos[,2] == i, 17] = cant_cartasTP7$Total[cant_cartasTP7$País == i]
+}
+
+for(i in na.omit(cant_cartasVISA$País)){
+  codigos[codigos[,2] == i, 18] = cant_cartasVISA$Total[cant_cartasVISA$País == i]
+}
+
+
 countries@data$CANT_CARTAS <- as.numeric(codigos[,3])
 countries@data$LONGITUD <- as.numeric(codigos[,4])
 countries@data$LATITUD <- as.numeric(codigos[,5])
 countries@data$NOMBRE <- codigos[,2]
+countries@data$CANT_CARTASPIP <- as.numeric(codigos[,6])
+countries@data$CANT_CARTASAPC <- as.numeric(codigos[,7])
+countries@data$CANT_CARTASAUIP <- as.numeric(codigos[,8])
+countries@data$CANT_CARTASPIP2 <- as.numeric(codigos[,9])
+countries@data$CANT_CARTASPIP5 <- as.numeric(codigos[,10])
+countries@data$CANT_CARTASPIP7 <- as.numeric(codigos[,11])
+countries@data$CANT_CARTASTP1 <- as.numeric(codigos[,12])
+countries@data$CANT_CARTASTP12 <- as.numeric(codigos[,13])
+countries@data$CANT_CARTASTP4 <- as.numeric(codigos[,14])
+countries@data$CANT_CARTASTP5 <- as.numeric(codigos[,15])
+countries@data$CANT_CARTASTP6 <- as.numeric(codigos[,16])
+countries@data$CANT_CARTASTP7 <- as.numeric(codigos[,17])
+countries@data$CANT_CARTASVISA <- as.numeric(codigos[,18])
+
+
+
 
 View(countries@data)
 
@@ -270,3 +380,65 @@ countriesmap <- countriesmap %>%
 countriesmap
 
 saveWidget(countriesmap , file = file.path(getwd() ,  "gráficos" ,  "mapa_por_cartas.html")  ,  selfcontained = F , libdir = "libraryjs")
+
+# Etiquetas con información para cada país
+
+labels_countries <- sprintf(
+  "<strong> %s </strong> <br/> %s %g  cartas <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g  " , 
+  countries@data$NOMBRE, "Total: ", countries@data$CANT_CARTAS, 
+  "PIP: ", countries@data$CANT_CARTASPIP,
+  "PIP2: ", countries@data$CANT_CARTASPIP2,
+  "PIP5: ", countries@data$CANT_CARTASPIP5,
+  "PIP7: ", countries@data$CANT_CARTASPIP7,
+  "APC: ", countries@data$CANT_CARTASAPC,
+  "AUIP: ", countries@data$CANT_CARTASAUIP,
+  "TP1: ", countries@data$CANT_CARTASTP1,
+  "TP4: ", countries@data$CANT_CARTASTP4,
+  "TP5: ", countries@data$CANT_CARTASTP5,
+  "TP6: ", countries@data$CANT_CARTASTP6,
+  "TP7: ", countries@data$CANT_CARTASTP7,
+  "TP12: ", countries@data$CANT_CARTASTP12,
+  "VISA: ", countries@data$CANT_CARTASVISA
+) %>% lapply(htmltools::HTML)
+
+# Paleta de colores
+
+colores <- c('#ffffcc','#c2e699','#78c679','#31a354','#006837')
+binpal <- colorBin("Blues", bins=c(0,1, 11, 51, 101, Inf), palette = colores)
+
+# código de mapa con leaflet
+
+countriesmap <- leaflet(countries)
+
+for (k in c(1 , 2 , 3)) {
+  countriesmap <- countriesmap %>% addProviderTiles(names(esri[k])  , group = names.esri[k] ,  options =  providerTileOptions(minZoom = 2))
+}
+
+countriesmap <- countriesmap %>%
+  addLayersControl(baseGroups = names.esri , 
+                   options = layersControlOptions(collapsed = T)) %>%
+  setView(lat = 0,  lng = 0,  zoom = 2)%>%
+  addPolygons(stroke = T ,  smoothFactor = 0.05 ,   color = "gray" ,  weight = 1 , 
+              fillColor = ~binpal(CANT_CARTAS) , 
+              label = labels_countries ,  labelOptions = labelOptions( style = list("font-weight" = "normal" ,  padding = "3px 8px") ,   textsize = "12px" , direction = "auto"   ) ,  dashArray = "3" , 
+              fillOpacity = 0.6 , 
+              highlight = highlightOptions(
+                weight = 5 , 
+                color = "#666" , 
+                dashArray = "" , 
+                fillOpacity = 0.7 , 
+                bringToFront = F)) %>%   
+  addLegend("bottomright" ,  values = ~CANT_CARTAS, colors = colores ,  
+            title = "Cartas",  opacity = 1,  bins=c(0,1, 11, 51, 101, Inf), labels = c("0","1 - 10 ", "11 - 50","51 - 100","Más de 100"))%>%
+  addMiniMap(position = "bottomleft" , zoomAnimation = T ,  toggleDisplay = T ,  autoToggleDisplay = T)%>%
+  addEasyButton(easyButton(
+    icon = "glyphicon-screenshot" ,  title = "Retornar" , 
+    onClick = JS("function(btn ,  map){ map.setView(L.latLng(0 , 0) ,  2); }")))%>%
+  addLabelOnlyMarkers(lat = ~LATITUD,  lng = ~LONGITUD , label =  ~paste0(countries$NOMBRE) ,   labelOptions = labelOptions(noHide = T ,  direction = 'top' ,  textOnly = T , textsize = "10px") )%>%
+  addScaleBar(position = "bottomleft" , scaleBarOptions(metric = T ,  imperial =  F))
+
+
+countriesmap
+
+saveWidget(countriesmap , file = file.path(getwd() ,  "gráficos" ,  "mapa_por_cartas_tramite.html")  ,  selfcontained = F , libdir = "libraryjs")
+
