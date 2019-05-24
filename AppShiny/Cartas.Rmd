@@ -1,0 +1,509 @@
+---
+title: "Relaciones Estratégicas DRE - Cartas"
+resource_files:
+- AppShiny/data/centroids.xlsx
+- AppShiny/data/Megatabla1.xlsx
+- AppShiny/data/countriesgeo.json
+- AppShiny/data/cartas.xlsx
+
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    social: menu
+
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(tidyverse)
+library(readxl) 
+library(ggplot2)
+library(htmlwidgets)
+library(leaflet)
+library(lubridate)
+library(highcharter)
+library(rgdal)
+library(rjson)
+library(shiny)
+
+
+relativo <- function(x){
+  div <- function(m){m*100/sum(m,  na.rm =  TRUE)}
+  x1 <- t(apply(x,1,div))
+  x2 <- round(x1,0)
+  return(x2)
+}
+
+series3 <- function(datos,categoria,colores,titulo,eje){
+  fecha <- (datos %>% filter(Variable == categoria)%>% 
+              spread(key = Clase, value = Total) %>% 
+              mutate(Fecha = paste(MONTH,sep = "-")))$Fecha
+  datos <- ungroup(datos)
+  tba <- datos %>% filter(Variable == categoria) %>%
+    mutate(Fecha = paste(MONTH,sep = "-"))
+  tba0 <- expand.grid(unique(tba$Fecha),unique(tba$Clase))
+  colnames(tba0) <- c("Fecha","Clase")
+  tba0 <- tba0 %>% left_join(tba %>% select(-MONTH,-Variable)) %>% arrange(Fecha)
+  tba2 <- datos %>% filter(Variable == categoria) %>% 
+    spread(key = Clase, value = Total) %>% 
+    select(-MONTH,-Variable)
+  tba2_nombres <- colnames(tba2)
+  tba2 <- tba2 %>% relativo()
+  tba2 <- matrix(tba2,ncol=length(tba2_nombres))
+  tba2 <- data.frame(tba2)
+  colnames(tba2) <- tba2_nombres
+  tba2 <- tba2 %>% 
+    mutate(Fecha=fecha) %>%  
+    gather(key="Clase", value = "Relativo",tba2_nombres)
+  n <- tba %>% select(Clase) %>% distinct() %>% nrow()
+  cat <- tba %>% select(Clase) %>% distinct() %>% arrange(Clase)
+  colo <- as.matrix(colores[1:n],ncol=1)
+  rownames(colo)= cat$Clase
+  tba0 <- tba0 %>% inner_join(tba2)
+  gfa <-  tba0 %>% 
+    hchart( "line", hcaes(x = Fecha, y = Total, group = Clase), color = as.vector(colo), zoomType = list(enabled=FALSE),  resetZoomButton=TRUE)%>% 
+    hc_rangeSelector(inputEnabled = FALSE, enabled=FALSE) %>% 
+    hc_add_theme(hc_theme_elementary()) %>% 
+    hc_chart(zoomType = "x",type = "datetime") %>% 
+    hc_plotOptions(line = list(
+      marker = list( enabled = TRUE, symbol = "square", radius = 1) ))%>%
+    hc_yAxis( lineColor = '#787878', lineWidth = 1, min = 0,
+              title = list(text = eje,  offset = 70,
+                           style = list( fontWeight = "bold",
+                                         fontSize = "18px",
+                                         color = 'black')),
+              opposite = FALSE,
+              labels = list(
+                style = list(
+                  fontWeight = "bold",
+                  color = 'black',
+                  fontSize = '18px'
+                ))
+    ) %>% 
+    hc_xAxis(  lineColor = '#787878', 
+               title = list(text = "mes",  offset = 70, 
+                            style = list( fontWeight = "bold",
+                                          fontSize = "18px",
+                                          color = 'black')),
+               opposite = FALSE,
+               labels = list(
+                 style = list(
+                   fontWeight = "bold",
+                   color = 'black',
+                   fontSize = '18px'
+                 ))
+    ) %>% 
+    hc_title(style = list( fontWeight = "bold", 
+                           fontSize = "22px", 
+                           useHTML = TRUE ), text = titulo) %>%
+    hc_exporting(enabled = TRUE, filename = "export") %>%
+    hc_legend(enabled = TRUE, align = "center",layout = "horizontal",
+              x = 42, y = 0,
+              itemStyle = list(
+                fontWeight = "bold",
+                color = 'black',
+                fontSize = '18px'
+              )) %>%
+    hc_tooltip(crosshairs = TRUE, 
+               pointFormat= '<span style="color:{series.color}">\u25CF </span><b>{series.name}: {point.y}</b> ({point.Relativo}%)<br/>',
+               backgroundColor =  hex_to_rgba("#baaeae", 0.7), 
+               borderColor = "#6d6666", shared = TRUE,
+               borderWidth = 5, useHTML = TRUE) %>%
+    hc_add_theme(hc_theme_flat())
+  
+  return(gfa)
+}
+
+
+# Lista con los nombres ISO en español de los diferentes países.
+
+spanish <- read_xlsx("AppShiny/data/centroids.xlsx", sheet = "Spanish")
+
+spanish <- na.omit(spanish)
+countries <- rgdal::readOGR("AppShiny/data/countriesgeo.json")
+
+
+
+
+esri <- grep("^Esri", providers, value = T)
+esri<- esri[c(11, 2,5)]
+esri
+names.esri <- c("SimpleMap","StreetMap", "SateliteMap")
+
+
+colores <- c('#ffffcc','#c2e699','#78c679','#31a354','#006837')
+binpal <- colorBin("Blues", bins=c(0,1, 11, 51, 101, Inf), palette = colores)
+
+tipovar <- c("text", "text", "date" ,"date"
+) # Especificar tipo de variables del Dataset
+
+
+#colores de las series
+
+col <-   c( "#8cc63f", # verde
+            "#f15a24", # naranja
+            "#0071bc", # azul vivo
+            "#6d6666", # gris
+            "#fbb03b", # amarillo
+            "#93278f", # morado
+            "#29abe2", # azul claro
+            "#c1272d", # rojo
+            "#8b7355", # cafe
+            "#855b5b", # vinotinto
+            "#ed1e79") # rosado
+
+#Lectura de bases de datos
+
+cartas <- read_excel("AppShiny/data/cartas.xlsx", 
+                        sheet = 1,  col_types = tipovar)
+
+cartas$YEAR <- as.character(year(cartas$Fecha))
+cartas$MONTH <- as.character(month(cartas$Fecha))
+
+
+for (i in 1:9){
+  cartas$MONTH[cartas$MONTH==i]= paste0("0",i)
+}
+
+conteo <- function(cartas, varc){
+  cartas %>% group_by_(.dots = list("YEAR",varc)) %>% 
+    summarise(Total = n()) %>% rename_(.dots=list("Clase"=varc)) %>% 
+    mutate_(Variable = "varc") %>% select(Variable, YEAR, Clase, Total)
+}
+
+conteo2 <- function(cartas, varc){
+  cartas %>% group_by_(.dots = list("MONTH",varc)) %>% 
+    summarise(Total = n()) %>% rename_(.dots=list("Clase"=varc)) %>% 
+    mutate_(Variable = "varc") %>% select(Variable, MONTH, Clase, Total)
+}
+
+
+```
+
+
+Sidebar {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+
+selectInput('year', 'Seleccione un año', c("Todos", "2017"  ,"2018",  "2019"),
+                selected="Todos")
+
+selectInput('pais', 'Seleccione un país', c("Todos", levels(as.factor(cartas$País))),
+                selected="Todos")
+
+selectInput('issue', 'Seleccione un trámite', c("Todos",levels(as.factor(cartas$tramite))),
+                selected="Todos")
+
+```
+
+Row
+-----------------------------------------------------------------------
+
+### Serie
+
+```{r}
+selectedYear <- reactive({
+
+    if (input$year %in% levels(as.factor(cartas$YEAR))) {
+      datos <- cartas[cartas$YEAR == input$year,]
+ return(datos)
+    } else {
+            datos <- cartas
+          return(datos)
+    }
+})
+
+
+
+
+selectedIssue <- reactive({
+
+    if (input$issue %in% levels(as.factor(cartas$tramite))) {
+      datos <- cartas[selectedYear()$tramite == input$issue,]
+ return(datos)
+    } else {
+            datos <- selectedYear()
+          return(datos)
+    }
+})
+
+selectedCountry <- reactive({
+
+    if (input$pais %in% levels(as.factor(cartas$País))) {
+      datos <- cartas[selectedIssue()$País == input$pais,]
+ return(datos)
+    } else {
+            datos <- selectedIssue()
+          return(datos)
+    }
+})
+
+
+meses <- reactive({
+  out <- conteo2( selectedIssue(),"YEAR")
+
+  out <- na.omit(out[out$Clase != "20173" & meses$Clase != "2010",])
+return(out)
+})
+
+
+raceplot <- renderHighchart({
+serie_global <- series3(
+  datos = meses,
+  categoria = "YEAR",
+  colores = col,
+  titulo = "Evolución por meses del número de cartas en cada año",
+  eje = "Número de cartas"
+)
+serie_global
+})
+
+highchartOutput('raceplot')
+
+
+```
+
+Row 
+-----------------------------------------------------------------------
+
+### Mapa
+
+```{r}
+
+cant_cartas <- reactive({selectedYear %>% group_by(País) %>% summarise(Total=n())
+  cant_cartas <- na.omit(cant_cartas)
+return(cant_cartas)})
+
+cant_cartasPIP <-  reactive({selectedYear()[cartas$tramite== "PIP",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP <- na.omit(cant_cartasPIP)
+return(cant_cartasPIP)})
+
+
+cant_cartasAPC <- reactive({ selectedYear[selectedYear()$tramite== "APC",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasAPC <- na.omit(cant_cartasAPC)
+return(cant_cartasAPC)})
+
+
+cant_cartasPIP5 <-  reactive({selectedYear()[selectedYear()$tramite== "PIP5",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP5 <- na.omit(cant_cartasPIP5)
+return(cant_cartasPIP5)})
+
+
+cant_cartasTP12 <- reactive({ selectedYear[selectedYear()$tramite== "TP12",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP12 <- na.omit(cant_cartasTP12)
+return(cant_cartasTP12)})
+
+cant_cartasTP7 <-  reactive({selectedYear()[selectedYear()$tramite== "TP7",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP7 <- na.omit(cant_cartasTP7)
+return(cant_cartasTP7)})
+
+
+cant_cartasAUIP <-  reactive({selectedYear()[selectedYear()$tramite== "PIP6",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasAUIP <- na.omit(cant_cartasAUIP)
+return(cant_cartasAUIP)})
+
+cant_cartasTP4 <-  reactive({selectedYear()[selectedYear()$tramite== "TP4",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP4 <- na.omit(cant_cartasTP4)
+return(cant_cartasTP4)})
+
+
+cant_cartasVISA <-  reactive({selectedYear()[selectedYear()$tramite== "VISA",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasVISA <- na.omit(cant_cartasVISA)
+return(cant_cartasVISA)})
+
+
+cant_cartasPIP7 <-  reactive({selectedYear()[selectedYear()$tramite== "PIP7",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP7 <- na.omit(cant_cartasPIP7)
+return(cant_cartasPIP7)})
+
+
+cant_cartasTP5 <-  reactive({selectedYear()[selectedYear()$tramite== "TP5",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP5 <- na.omit(cant_cartasTP5)
+return(cant_cartasTP5)})
+
+
+cant_cartasPIP2 <-  reactive({selectedYear()[selectedYear()$tramite== "PIP2",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasPIP2 <- na.omit(cant_cartasPIP2)
+return(cant_cartasPIP2)})
+
+
+cant_cartasTP1 <-  reactive({selectedYear()[selectedYear()$tramite== "TP1",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP1 <- na.omit(cant_cartasTP1)
+return(cant_cartasTP1)})
+
+
+cant_cartasTP6 <-  reactive({selectedYear()[selectedYear()$tramite== "TP6",] %>% group_by(País) %>% summarise(Total=n())
+cant_cartasTP6 <- na.omit(cant_cartasTP6)
+return(cant_cartasTP6)})
+
+
+codigos <- reactive({
+codigos <- matrix(0, nrow = 180, ncol = 18)
+
+for(i in 1:180){
+  codigos[i,1] = as.character(paises()@data$id[i])
+}
+
+
+for(i in spanish$ISO){
+  codigos[codigos[,1] == i, 2] = spanish$Nombre[spanish$ISO== i]
+}
+
+for(i in na.omit(cant_cartas$País)){
+  codigos[codigos[,2] == i, 3] = cant_cartas$Total[cant_cartas$País == i]
+}
+
+for(i in codigos[-c(40,148, 69, 91, 140, 143, 176),1]){
+  codigos[codigos[,1] == i, 4] = centroids$Longitude[centroids$CODS_PAISU == i]
+}
+
+for(i in codigos[-c(40,148, 69, 91, 140, 143, 176),1]){
+  codigos[codigos[,1] == i, 5] = centroids$Latitude[centroids$CODS_PAISU == i]
+}
+
+for(i in na.omit(cant_cartasPIP$País)){
+  codigos[codigos[,2] == i, 6] = cant_cartasPIP$Total[cant_cartasPIP$País == i]
+}
+
+for(i in na.omit(cant_cartasAPC$País)){
+  codigos[codigos[,2] == i, 7] = cant_cartasAPC$Total[cant_cartasAPC$País == i]
+}
+
+for(i in na.omit(cant_cartasAUIP$País)){
+  codigos[codigos[,2] == i, 8] = cant_cartasAUIP$Total[cant_cartasAUIP$País == i]
+}
+
+for(i in na.omit(cant_cartasPIP2$País)){
+  codigos[codigos[,2] == i, 9] = cant_cartasPIP2$Total[cant_cartasPIP2$País == i]
+}
+
+for(i in na.omit(cant_cartasPIP5$País)){
+  codigos[codigos[,2] == i, 10] = cant_cartasPIP5$Total[cant_cartasPIP5$País == i]
+}
+
+for(i in na.omit(cant_cartasPIP7$País)){
+  codigos[codigos[,2] == i, 11] = cant_cartasPIP7$Total[cant_cartasPIP7$País == i]
+}
+
+for(i in na.omit(cant_cartasTP1$País)){
+  codigos[codigos[,2] == i, 12] = cant_cartasTP1$Total[cant_cartasTP1$País == i]
+}
+
+for(i in na.omit(cant_cartasTP12$País)){
+  codigos[codigos[,2] == i, 13] = cant_cartasTP12$Total[cant_cartasTP12$País == i]
+}
+
+for(i in na.omit(cant_cartasTP4$País)){
+  codigos[codigos[,2] == i, 14] = cant_cartasTP4$Total[cant_cartasTP4$País == i]
+}
+
+for(i in na.omit(cant_cartasTP5$País)){
+  codigos[codigos[,2] == i, 15] = cant_cartasTP5$Total[cant_cartasTP5$País == i]
+}
+
+for(i in na.omit(cant_cartasTP6$País)){
+  codigos[codigos[,2] == i, 16] = cant_cartasTP6$Total[cant_cartasTP6$País == i]
+}
+
+for(i in na.omit(cant_cartasTP7$País)){
+  codigos[codigos[,2] == i, 17] = cant_cartasTP7$Total[cant_cartasTP7$País == i]
+}
+
+for(i in na.omit(cant_cartasVISA$País)){
+  codigos[codigos[,2] == i, 18] = cant_cartasVISA$Total[cant_cartasVISA$País == i]
+}
+return(codigos)
+})
+
+paises <- reactive({
+
+
+paises()@data$CANT_CARTAS <- as.numeric(codigos()[,3])
+paises()@data$LONGITUD <- as.numeric(codigos()[,4])
+paises()@data$LATITUD <- as.numeric(codigos()[,5])
+paises()@data$NOMBRE <- codigos[,2]
+paises()@data$CANT_CARTASPIP <- as.numeric(codigos()[,6])
+paises()@data$CANT_CARTASAPC <- as.numeric(codigos()[,7])
+paises()@data$CANT_CARTASAUIP <- as.numeric(codigos()[,8])
+paises()@data$CANT_CARTASPIP2 <- as.numeric(codigos()[,9])
+paises()@data$CANT_CARTASPIP5 <- as.numeric(codigos()[,10])
+paises()@data$CANT_CARTASPIP7 <- as.numeric(codigos()[,11])
+paises()@data$CANT_CARTASTP1 <- as.numeric(codigos()[,12])
+paises()@data$CANT_CARTASTP12 <- as.numeric(codigos()[,13])
+paises()@data$CANT_CARTASTP4 <- as.numeric(codigos()[,14])
+paises()@data$CANT_CARTASTP5 <- as.numeric(codigos()[,15])
+paises()@data$CANT_CARTASTP6 <- as.numeric(codigos()[,16])
+paises()@data$CANT_CARTASTP7 <- as.numeric(codigos()[,17])
+paises()@data$CANT_CARTASVISA <- as.numeric(codigos()[,18])
+
+paises()@data[57,]$LONGITUD <- 2.413913
+paises()@data[57,]$LATITUD <- 46.766583
+return(countries)
+})
+
+labels_countries <- reactive({sprintf(
+ 
+"<strong> %s </strong> <br/> %s %g  cartas <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g    &nbsp %s %g   <br/> %s %g  " , 
+  paises()@data$NOMBRE, "Total: ", paises()@data$CANT_CARTAS, 
+  "PIP: ", paises()@data$CANT_CARTASPIP,
+  "PIP2: ", paises()@data$CANT_CARTASPIP2,
+  "PIP5: ", paises()@data$CANT_CARTASPIP5,
+  "PIP7: ", paises()@data$CANT_CARTASPIP7,
+  "APC: ", paises()@data$CANT_CARTASAPC,
+  "AUIP: ", paises()@data$CANT_CARTASAUIP,
+  "TP1: ", paises()@data$CANT_CARTASTP1,
+  "TP4: ", paises()@data$CANT_CARTASTP4,
+  "TP5: ", paises()@data$CANT_CARTASTP5,
+  "TP6: ", paises()@data$CANT_CARTASTP6,
+  "TP7: ", paises()@data$CANT_CARTASTP7,
+  "TP12: ", paises()@data$CANT_CARTASTP12,
+  "VISA: ", paises()@data$CANT_CARTASVISA
+) %>% lapply(htmltools::HTML)
+
+})
+# código de mapa con leaflet
+
+countriesmap <- renderLeaflet({
+
+
+countriesmap <- leaflet(countries)
+
+for (k in c(1 , 2 , 3)) {
+  countriesmap <- countriesmap %>% addProviderTiles(names(esri[k])  , group = names.esri[k] ,  options =  providerTileOptions(minZoom = 2))
+}
+
+countriesmap <- countriesmap %>%
+  addLayersControl(baseGroups = names.esri , 
+                   options = layersControlOptions(collapsed = T)) %>%
+  setView(lat = 0,  lng = 0,  zoom = 2)%>%
+  addPolygons(stroke = T ,  smoothFactor = 0.05 ,   color = "gray" ,  weight = 1 , 
+              fillColor = ~binpal(CANT_CARTAS) , 
+              label = labels_countries ,  labelOptions = labelOptions( style = list("font-weight" = "normal" ,  padding = "3px 8px") ,   textsize = "12px" , direction = "auto"   ) ,  dashArray = "3" , 
+              fillOpacity = 0.6 , 
+              highlight = highlightOptions(
+                weight = 5 , 
+                color = "#666" , 
+                dashArray = "" , 
+                fillOpacity = 0.7 , 
+                bringToFront = F)) %>%   
+  addLegend("bottomright" ,  values = ~CANT_CARTAS, colors = colores ,  
+            title = "Cartas",  opacity = 1,  bins=c(0,1, 11, 51, 101, Inf), labels = c("0","1 - 10 ", "11 - 50","51 - 100","Más de 100"))%>%
+  addMiniMap(position = "bottomleft" , zoomAnimation = T ,  toggleDisplay = T ,  autoToggleDisplay = T)%>%
+  addEasyButton(easyButton(
+    icon = "glyphicon-screenshot" ,  title = "Retornar" , 
+    onClick = JS("function(btn ,  map){ map.setView(L.latLng(0 , 0) ,  2); }")))%>%
+  addLabelOnlyMarkers(lat = ~LATITUD,  lng = ~LONGITUD , label =  ~paste0(countries$NOMBRE) ,   labelOptions = labelOptions(noHide = T ,  direction = 'top' ,  textOnly = T , textsize = "10px") )%>%
+  addScaleBar(position = "bottomleft" , scaleBarOptions(metric = T ,  imperial =  F))
+
+
+countriesmap
+
+})
+
+
+leafletOutput("countriesmap")
+
+```
+
