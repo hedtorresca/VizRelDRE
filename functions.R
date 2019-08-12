@@ -562,7 +562,7 @@ series3 <- function(datos,categoria,colores,titulo,eje){
                 ))
     ) %>% 
     hc_xAxis(  lineColor = '#787878', 
-               title = list(text = "mes",  offset = 70, 
+               title = list(text = "Mes",  offset = 70, 
                             style = list( fontWeight = "bold",
                                           fontSize = "18px",
                                           color = 'black')),

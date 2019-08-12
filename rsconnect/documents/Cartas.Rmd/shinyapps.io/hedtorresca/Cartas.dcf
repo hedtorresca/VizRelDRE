@@ -1,0 +1,12 @@
+name: Cartas
+title: Cartas
+username:
+account: hedtorresca
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 947308
+bundleId: 2226076
+url: https://hedtorresca.shinyapps.io/Cartas/
+when: 1562947135.79689
+asMultiple: FALSE
+asStatic: FALSE

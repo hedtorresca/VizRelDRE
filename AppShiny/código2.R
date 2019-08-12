@@ -9,11 +9,12 @@ library(htmlwidgets)
 library(leaflet)
 library(rgdal)
 library(rjson)
+
 # source("functions.R", encoding = 'UTF-8')
 # 
 # 
-# tipovar <- c("text", "text", "date" ,"date"
-) # Especificar tipo de variables del Dataset
+tipovar <- c("text", "text", "date" ,"date")
+ # Especificar tipo de variables del Dataset
 
 
 #colores de las series
